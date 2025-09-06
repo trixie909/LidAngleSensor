@@ -34,6 +34,10 @@ Oh. I don't know.
 
 I guess.
 
+**Why does it say it's by Lisa?**
+
+I signed up for my developer account when I was a kid, used my mom's name, and now it's stuck that way forever and I can't change it. That's life.
+
 **How come the audio feels kind of...weird?**
 
 I'm bad at audio.
