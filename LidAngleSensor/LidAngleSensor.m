@@ -48,11 +48,13 @@
         return NULL;
     }
     
-    // Use Generic Desktop + Mouse criteria to find candidate devices
-    // This broader search allows us to find the lid sensor among other HID devices
+    // Match specifically for the lid angle sensor to avoid permission prompts
+    // Target: Sensor page (0x0020), Orientation usage (0x008A)
     NSDictionary *matchingDict = @{
-        @"UsagePage": @(0x0001),    // Generic Desktop
-        @"Usage": @(0x0003),        // Mouse
+        @"VendorID": @(0x05AC),     // Apple
+        @"ProductID": @(0x8104),    // Specific product
+        @"UsagePage": @(0x0020),    // Sensor page
+        @"Usage": @(0x008A),        // Orientation usage
     };
     
     IOHIDManagerSetDeviceMatching(manager, (__bridge CFDictionaryRef)matchingDict);
@@ -60,33 +62,38 @@
     IOHIDDeviceRef device = NULL;
     
     if (devices && CFSetGetCount(devices) > 0) {
-        NSLog(@"[LidAngleSensor] Found %ld devices, looking for sensor...", CFSetGetCount(devices));
+        NSLog(@"[LidAngleSensor] Found %ld matching lid angle sensor device(s)", CFSetGetCount(devices));
         
         const void **deviceArray = malloc(sizeof(void*) * CFSetGetCount(devices));
         CFSetGetValues(devices, deviceArray);
         
-        // Search for the specific lid angle sensor device
-        // Discovered through reverse engineering: Apple device with Sensor page
+        // Test each matching device to find the one that actually works
         for (CFIndex i = 0; i < CFSetGetCount(devices); i++) {
-            IOHIDDeviceRef currentDevice = (IOHIDDeviceRef)deviceArray[i];
+            IOHIDDeviceRef testDevice = (IOHIDDeviceRef)deviceArray[i];
             
-            CFNumberRef vendorID = IOHIDDeviceGetProperty(currentDevice, CFSTR("VendorID"));
-            CFNumberRef productID = IOHIDDeviceGetProperty(currentDevice, CFSTR("ProductID"));
-            CFNumberRef usagePage = IOHIDDeviceGetProperty(currentDevice, CFSTR("PrimaryUsagePage"));
-            CFNumberRef usage = IOHIDDeviceGetProperty(currentDevice, CFSTR("PrimaryUsage"));
-            
-            int vid = 0, pid = 0, up = 0, u = 0;
-            if (vendorID) CFNumberGetValue(vendorID, kCFNumberIntType, &vid);
-            if (productID) CFNumberGetValue(productID, kCFNumberIntType, &pid);
-            if (usagePage) CFNumberGetValue(usagePage, kCFNumberIntType, &up);
-            if (usage) CFNumberGetValue(usage, kCFNumberIntType, &u);
-            
-            // Target the specific lid angle sensor device
-            // VID=0x05AC (Apple), PID=0x8104, UsagePage=0x0020 (Sensor), Usage=0x008A (Orientation)
-            if (vid == 0x05AC && pid == 0x8104 && up == 0x0020 && u == 0x008A) {
-                device = (IOHIDDeviceRef)CFRetain(currentDevice);
-                NSLog(@"[LidAngleSensor] Found lid angle sensor device: VID=0x%04X, PID=0x%04X", vid, pid);
-                break;
+            // Try to open and read from this device
+            if (IOHIDDeviceOpen(testDevice, kIOHIDOptionsTypeNone) == kIOReturnSuccess) {
+                uint8_t testReport[8] = {0};
+                CFIndex reportLength = sizeof(testReport);
+                
+                IOReturn result = IOHIDDeviceGetReport(testDevice, 
+                                                      kIOHIDReportTypeFeature,
+                                                      1,
+                                                      testReport, 
+                                                      &reportLength);
+                
+                if (result == kIOReturnSuccess && reportLength >= 3) {
+                    // This device works! Use it.
+                    device = (IOHIDDeviceRef)CFRetain(testDevice);
+                    NSLog(@"[LidAngleSensor] Successfully found working lid angle sensor device (index %ld)", i);
+                    IOHIDDeviceClose(testDevice, kIOHIDOptionsTypeNone); // Close for now, will reopen in init
+                    break;
+                } else {
+                    NSLog(@"[LidAngleSensor] Device %ld failed to read (result: %d, length: %ld)", i, result, reportLength);
+                    IOHIDDeviceClose(testDevice, kIOHIDOptionsTypeNone);
+                }
+            } else {
+                NSLog(@"[LidAngleSensor] Failed to open device %ld", i);
             }
         }
         
