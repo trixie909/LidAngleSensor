@@ -8,14 +8,15 @@
 #import "AppDelegate.h"
 #import "LidAngleSensor.h"
 #import "CreakAudioEngine.h"
+#import "NSLabel.h"
 
 @interface AppDelegate ()
 @property (strong, nonatomic) LidAngleSensor *lidSensor;
 @property (strong, nonatomic) CreakAudioEngine *audioEngine;
-@property (strong, nonatomic) NSTextField *angleLabel;
-@property (strong, nonatomic) NSTextField *statusLabel;
-@property (strong, nonatomic) NSTextField *velocityLabel;
-@property (strong, nonatomic) NSTextField *audioStatusLabel;
+@property (strong, nonatomic) NSLabel *angleLabel;
+@property (strong, nonatomic) NSLabel *statusLabel;
+@property (strong, nonatomic) NSLabel *velocityLabel;
+@property (strong, nonatomic) NSLabel *audioStatusLabel;
 @property (strong, nonatomic) NSButton *audioToggleButton;
 @property (strong, nonatomic) NSTimer *updateTimer;
 @end
@@ -49,7 +50,7 @@
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
     
-    [self.window setTitle:@"MacBook Lid Creak Sensor"];
+    [self.window setTitle:@"MacBook Lid Angle Sensor"];
     [self.window makeKeyAndOrderFront:nil];
     [self.window center];
     
@@ -57,84 +58,75 @@
     NSView *contentView = [[NSView alloc] initWithFrame:windowFrame];
     [self.window setContentView:contentView];
     
-    // Create title label
-    NSTextField *titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 360, 350, 40)];
-    [titleLabel setStringValue:@"MacBook Lid Creak Sensor"];
-    [titleLabel setFont:[NSFont boldSystemFontOfSize:18]];
-    [titleLabel setBezeled:NO];
-    [titleLabel setDrawsBackground:NO];
-    [titleLabel setEditable:NO];
-    [titleLabel setSelectable:NO];
-    [titleLabel setAlignment:NSTextAlignmentCenter];
-    [contentView addSubview:titleLabel];
-    
-    // Create angle display label
-    self.angleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 280, 350, 40)];
+    // Create angle display label with tabular numbers (larger, light font)
+    self.angleLabel = [[NSLabel alloc] init];
     [self.angleLabel setStringValue:@"Initializing..."];
-    [self.angleLabel setFont:[NSFont monospacedSystemFontOfSize:20 weight:NSFontWeightMedium]];
-    [self.angleLabel setBezeled:NO];
-    [self.angleLabel setDrawsBackground:NO];
-    [self.angleLabel setEditable:NO];
-    [self.angleLabel setSelectable:NO];
+    [self.angleLabel setFont:[NSFont monospacedDigitSystemFontOfSize:48 weight:NSFontWeightLight]];
     [self.angleLabel setAlignment:NSTextAlignmentCenter];
     [self.angleLabel setTextColor:[NSColor systemBlueColor]];
     [contentView addSubview:self.angleLabel];
     
-    // Create velocity display label
-    self.velocityLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 240, 350, 30)];
-    [self.velocityLabel setStringValue:@"Velocity: 0.0 deg/s"];
-    [self.velocityLabel setFont:[NSFont monospacedSystemFontOfSize:14 weight:NSFontWeightRegular]];
-    [self.velocityLabel setBezeled:NO];
-    [self.velocityLabel setDrawsBackground:NO];
-    [self.velocityLabel setEditable:NO];
-    [self.velocityLabel setSelectable:NO];
+    // Create velocity display label with tabular numbers
+    self.velocityLabel = [[NSLabel alloc] init];
+    [self.velocityLabel setStringValue:@"Velocity: 00 deg/s"];
+    [self.velocityLabel setFont:[NSFont monospacedDigitSystemFontOfSize:14 weight:NSFontWeightRegular]];
     [self.velocityLabel setAlignment:NSTextAlignmentCenter];
-    [self.velocityLabel setTextColor:[NSColor systemGreenColor]];
     [contentView addSubview:self.velocityLabel];
     
     // Create status label
-    self.statusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 200, 350, 30)];
+    self.statusLabel = [[NSLabel alloc] init];
     [self.statusLabel setStringValue:@"Detecting sensor..."];
     [self.statusLabel setFont:[NSFont systemFontOfSize:14]];
-    [self.statusLabel setBezeled:NO];
-    [self.statusLabel setDrawsBackground:NO];
-    [self.statusLabel setEditable:NO];
-    [self.statusLabel setSelectable:NO];
     [self.statusLabel setAlignment:NSTextAlignmentCenter];
     [self.statusLabel setTextColor:[NSColor secondaryLabelColor]];
     [contentView addSubview:self.statusLabel];
     
     // Create audio toggle button
-    self.audioToggleButton = [[NSButton alloc] initWithFrame:NSMakeRect(175, 150, 100, 30)];
+    self.audioToggleButton = [[NSButton alloc] init];
     [self.audioToggleButton setTitle:@"Start Audio"];
     [self.audioToggleButton setBezelStyle:NSBezelStyleRounded];
     [self.audioToggleButton setTarget:self];
     [self.audioToggleButton setAction:@selector(toggleAudio:)];
+    [self.audioToggleButton setTranslatesAutoresizingMaskIntoConstraints:NO];
     [contentView addSubview:self.audioToggleButton];
     
     // Create audio status label
-    self.audioStatusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 110, 350, 30)];
-    [self.audioStatusLabel setStringValue:@"Audio: Stopped"];
+    self.audioStatusLabel = [[NSLabel alloc] init];
+    [self.audioStatusLabel setStringValue:@""];
     [self.audioStatusLabel setFont:[NSFont systemFontOfSize:14]];
-    [self.audioStatusLabel setBezeled:NO];
-    [self.audioStatusLabel setDrawsBackground:NO];
-    [self.audioStatusLabel setEditable:NO];
-    [self.audioStatusLabel setSelectable:NO];
     [self.audioStatusLabel setAlignment:NSTextAlignmentCenter];
     [self.audioStatusLabel setTextColor:[NSColor secondaryLabelColor]];
     [contentView addSubview:self.audioStatusLabel];
     
-    // Create info label
-    NSTextField *infoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 30, 350, 60)];
-    [infoLabel setStringValue:@"Real-time door creak audio responds to lid movement.\nSlow movement = louder creak, fast movement = silent."];
-    [infoLabel setFont:[NSFont systemFontOfSize:12]];
-    [infoLabel setBezeled:NO];
-    [infoLabel setDrawsBackground:NO];
-    [infoLabel setEditable:NO];
-    [infoLabel setSelectable:NO];
-    [infoLabel setAlignment:NSTextAlignmentCenter];
-    [infoLabel setTextColor:[NSColor tertiaryLabelColor]];
-    [contentView addSubview:infoLabel];
+    // Set up auto layout constraints
+    [NSLayoutConstraint activateConstraints:@[
+        // Angle label (main display, now at top)
+        [self.angleLabel.topAnchor constraintEqualToAnchor:contentView.topAnchor constant:40],
+        [self.angleLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.angleLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
+        
+        // Velocity label
+        [self.velocityLabel.topAnchor constraintEqualToAnchor:self.angleLabel.bottomAnchor constant:15],
+        [self.velocityLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.velocityLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
+        
+        // Status label
+        [self.statusLabel.topAnchor constraintEqualToAnchor:self.velocityLabel.bottomAnchor constant:15],
+        [self.statusLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.statusLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
+        
+        // Audio toggle button
+        [self.audioToggleButton.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:25],
+        [self.audioToggleButton.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.audioToggleButton.widthAnchor constraintEqualToConstant:120],
+        [self.audioToggleButton.heightAnchor constraintEqualToConstant:32],
+        
+        // Audio status label
+        [self.audioStatusLabel.topAnchor constraintEqualToAnchor:self.audioToggleButton.bottomAnchor constant:15],
+        [self.audioStatusLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.audioStatusLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
+        [self.audioStatusLabel.bottomAnchor constraintLessThanOrEqualToAnchor:contentView.bottomAnchor constant:-20]
+    ]];
 }
 
 - (void)initializeLidSensor {
@@ -155,10 +147,9 @@
     self.audioEngine = [[CreakAudioEngine alloc] init];
     
     if (self.audioEngine) {
-        [self.audioStatusLabel setStringValue:@"Audio: Ready (stopped)"];
-        [self.audioStatusLabel setTextColor:[NSColor systemOrangeColor]];
+        [self.audioStatusLabel setStringValue:@""];
     } else {
-        [self.audioStatusLabel setStringValue:@"Audio: Failed to initialize"];
+        [self.audioStatusLabel setStringValue:@"Audio initialization failed"];
         [self.audioStatusLabel setTextColor:[NSColor systemRedColor]];
         [self.audioToggleButton setEnabled:NO];
     }
@@ -172,13 +163,11 @@
     if (self.audioEngine.isEngineRunning) {
         [self.audioEngine stopEngine];
         [self.audioToggleButton setTitle:@"Start Audio"];
-        [self.audioStatusLabel setStringValue:@"Audio: Stopped"];
-        [self.audioStatusLabel setTextColor:[NSColor systemOrangeColor]];
+        [self.audioStatusLabel setStringValue:@""];
     } else {
         [self.audioEngine startEngine];
         [self.audioToggleButton setTitle:@"Stop Audio"];
-        [self.audioStatusLabel setStringValue:@"Audio: Running"];
-        [self.audioStatusLabel setTextColor:[NSColor systemGreenColor]];
+        [self.audioStatusLabel setStringValue:@""];
     }
 }
 
@@ -211,27 +200,22 @@
         if (self.audioEngine) {
             [self.audioEngine updateWithLidAngle:angle];
             
-            // Update velocity display
+            // Update velocity display with leading zero and whole numbers
             double velocity = self.audioEngine.currentVelocity;
-            [self.velocityLabel setStringValue:[NSString stringWithFormat:@"Velocity: %.1f deg/s", velocity]];
-            
-            // Color velocity based on magnitude
-            double absVelocity = fabs(velocity);
-            if (absVelocity < 0.3) {
-                [self.velocityLabel setTextColor:[NSColor systemGrayColor]];
-            } else if (absVelocity < 2.0) {
-                [self.velocityLabel setTextColor:[NSColor systemGreenColor]];
-            } else if (absVelocity < 10.0) {
-                [self.velocityLabel setTextColor:[NSColor systemYellowColor]];
+            int roundedVelocity = (int)round(velocity);
+            if (roundedVelocity < 100) {
+                [self.velocityLabel setStringValue:[NSString stringWithFormat:@"Velocity: %02d deg/s", roundedVelocity]];
             } else {
-                [self.velocityLabel setTextColor:[NSColor systemRedColor]];
+                [self.velocityLabel setStringValue:[NSString stringWithFormat:@"Velocity: %d deg/s", roundedVelocity]];
             }
             
-            // Update audio status with gain/rate info if running
+            // Keep velocity label color consistent
+            
+            // Show audio parameters when running
             if (self.audioEngine.isEngineRunning) {
                 double gain = self.audioEngine.currentGain;
                 double rate = self.audioEngine.currentRate;
-                [self.audioStatusLabel setStringValue:[NSString stringWithFormat:@"Audio: Running (Gain: %.2f, Rate: %.2f)", gain, rate]];
+                [self.audioStatusLabel setStringValue:[NSString stringWithFormat:@"Gain: %.2f, Rate: %.2f", gain, rate]];
             }
         }
         
