@@ -8,32 +8,44 @@
 #import "AppDelegate.h"
 #import "LidAngleSensor.h"
 #import "CreakAudioEngine.h"
+#import "ThereminAudioEngine.h"
 #import "NSLabel.h"
+
+typedef NS_ENUM(NSInteger, AudioMode) {
+    AudioModeCreak,
+    AudioModeTheremin
+};
 
 @interface AppDelegate ()
 @property (strong, nonatomic) LidAngleSensor *lidSensor;
-@property (strong, nonatomic) CreakAudioEngine *audioEngine;
+@property (strong, nonatomic) CreakAudioEngine *creakAudioEngine;
+@property (strong, nonatomic) ThereminAudioEngine *thereminAudioEngine;
 @property (strong, nonatomic) NSLabel *angleLabel;
 @property (strong, nonatomic) NSLabel *statusLabel;
 @property (strong, nonatomic) NSLabel *velocityLabel;
 @property (strong, nonatomic) NSLabel *audioStatusLabel;
 @property (strong, nonatomic) NSButton *audioToggleButton;
+@property (strong, nonatomic) NSSegmentedControl *modeSelector;
+@property (strong, nonatomic) NSLabel *modeLabel;
 @property (strong, nonatomic) NSTimer *updateTimer;
+@property (nonatomic, assign) AudioMode currentAudioMode;
 @end
 
 @implementation AppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    self.currentAudioMode = AudioModeCreak; // Default to creak mode
     [self createWindow];
     [self initializeLidSensor];
-    [self initializeAudioEngine];
+    [self initializeAudioEngines];
     [self startUpdatingDisplay];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
     [self.updateTimer invalidate];
     [self.lidSensor stopLidAngleUpdates];
-    [self.audioEngine stopEngine];
+    [self.creakAudioEngine stopEngine];
+    [self.thereminAudioEngine stopEngine];
 }
 
 - (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app {
@@ -41,8 +53,8 @@
 }
 
 - (void)createWindow {
-    // Create the main window (taller to accommodate audio controls)
-    NSRect windowFrame = NSMakeRect(100, 100, 450, 420);
+    // Create the main window (taller to accommodate mode selection and audio controls)
+    NSRect windowFrame = NSMakeRect(100, 100, 450, 480);
     self.window = [[NSWindow alloc] initWithContentRect:windowFrame
                                               styleMask:NSWindowStyleMaskTitled | 
                                                        NSWindowStyleMaskClosable | 
@@ -98,6 +110,25 @@
     [self.audioStatusLabel setTextColor:[NSColor secondaryLabelColor]];
     [contentView addSubview:self.audioStatusLabel];
     
+    // Create mode label
+    self.modeLabel = [[NSLabel alloc] init];
+    [self.modeLabel setStringValue:@"Audio Mode:"];
+    [self.modeLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightMedium]];
+    [self.modeLabel setAlignment:NSTextAlignmentCenter];
+    [self.modeLabel setTextColor:[NSColor labelColor]];
+    [contentView addSubview:self.modeLabel];
+    
+    // Create mode selector
+    self.modeSelector = [[NSSegmentedControl alloc] init];
+    [self.modeSelector setSegmentCount:2];
+    [self.modeSelector setLabel:@"Creak" forSegment:0];
+    [self.modeSelector setLabel:@"Theremin" forSegment:1];
+    [self.modeSelector setSelectedSegment:0]; // Default to creak
+    [self.modeSelector setTarget:self];
+    [self.modeSelector setAction:@selector(modeChanged:)];
+    [self.modeSelector setTranslatesAutoresizingMaskIntoConstraints:NO];
+    [contentView addSubview:self.modeSelector];
+    
     // Set up auto layout constraints
     [NSLayoutConstraint activateConstraints:@[
         // Angle label (main display, now at top)
@@ -125,7 +156,18 @@
         [self.audioStatusLabel.topAnchor constraintEqualToAnchor:self.audioToggleButton.bottomAnchor constant:15],
         [self.audioStatusLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
         [self.audioStatusLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
-        [self.audioStatusLabel.bottomAnchor constraintLessThanOrEqualToAnchor:contentView.bottomAnchor constant:-20]
+        
+        // Mode label
+        [self.modeLabel.topAnchor constraintEqualToAnchor:self.audioStatusLabel.bottomAnchor constant:25],
+        [self.modeLabel.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.modeLabel.widthAnchor constraintLessThanOrEqualToAnchor:contentView.widthAnchor constant:-40],
+        
+        // Mode selector
+        [self.modeSelector.topAnchor constraintEqualToAnchor:self.modeLabel.bottomAnchor constant:10],
+        [self.modeSelector.centerXAnchor constraintEqualToAnchor:contentView.centerXAnchor],
+        [self.modeSelector.widthAnchor constraintEqualToConstant:200],
+        [self.modeSelector.heightAnchor constraintEqualToConstant:28],
+        [self.modeSelector.bottomAnchor constraintLessThanOrEqualToAnchor:contentView.bottomAnchor constant:-20]
     ]];
 }
 
@@ -143,10 +185,11 @@
     }
 }
 
-- (void)initializeAudioEngine {
-    self.audioEngine = [[CreakAudioEngine alloc] init];
+- (void)initializeAudioEngines {
+    self.creakAudioEngine = [[CreakAudioEngine alloc] init];
+    self.thereminAudioEngine = [[ThereminAudioEngine alloc] init];
     
-    if (self.audioEngine) {
+    if (self.creakAudioEngine && self.thereminAudioEngine) {
         [self.audioStatusLabel setStringValue:@""];
     } else {
         [self.audioStatusLabel setStringValue:@"Audio initialization failed"];
@@ -156,18 +199,56 @@
 }
 
 - (IBAction)toggleAudio:(id)sender {
-    if (!self.audioEngine) {
+    id currentEngine = [self currentAudioEngine];
+    if (!currentEngine) {
         return;
     }
     
-    if (self.audioEngine.isEngineRunning) {
-        [self.audioEngine stopEngine];
+    if ([currentEngine isEngineRunning]) {
+        [currentEngine stopEngine];
         [self.audioToggleButton setTitle:@"Start Audio"];
         [self.audioStatusLabel setStringValue:@""];
     } else {
-        [self.audioEngine startEngine];
+        [currentEngine startEngine];
         [self.audioToggleButton setTitle:@"Stop Audio"];
         [self.audioStatusLabel setStringValue:@""];
+    }
+}
+
+- (IBAction)modeChanged:(id)sender {
+    NSSegmentedControl *control = (NSSegmentedControl *)sender;
+    AudioMode newMode = (AudioMode)control.selectedSegment;
+    
+    // Stop current engine if running
+    id currentEngine = [self currentAudioEngine];
+    BOOL wasRunning = [currentEngine isEngineRunning];
+    if (wasRunning) {
+        [currentEngine stopEngine];
+    }
+    
+    // Update mode
+    self.currentAudioMode = newMode;
+    
+    // Start new engine if the previous one was running
+    if (wasRunning) {
+        id newEngine = [self currentAudioEngine];
+        [newEngine startEngine];
+        [self.audioToggleButton setTitle:@"Stop Audio"];
+    } else {
+        [self.audioToggleButton setTitle:@"Start Audio"];
+    }
+    
+    [self.audioStatusLabel setStringValue:@""];
+}
+
+- (id)currentAudioEngine {
+    switch (self.currentAudioMode) {
+        case AudioModeCreak:
+            return self.creakAudioEngine;
+        case AudioModeTheremin:
+            return self.thereminAudioEngine;
+        default:
+            return self.creakAudioEngine;
     }
 }
 
@@ -196,12 +277,13 @@
         [self.angleLabel setStringValue:[NSString stringWithFormat:@"%.1f°", angle]];
         [self.angleLabel setTextColor:[NSColor systemBlueColor]];
         
-        // Update audio engine with new angle
-        if (self.audioEngine) {
-            [self.audioEngine updateWithLidAngle:angle];
+        // Update current audio engine with new angle
+        id currentEngine = [self currentAudioEngine];
+        if (currentEngine) {
+            [currentEngine updateWithLidAngle:angle];
             
             // Update velocity display with leading zero and whole numbers
-            double velocity = self.audioEngine.currentVelocity;
+            double velocity = [currentEngine currentVelocity];
             int roundedVelocity = (int)round(velocity);
             if (roundedVelocity < 100) {
                 [self.velocityLabel setStringValue:[NSString stringWithFormat:@"Velocity: %02d deg/s", roundedVelocity]];
@@ -209,13 +291,17 @@
                 [self.velocityLabel setStringValue:[NSString stringWithFormat:@"Velocity: %d deg/s", roundedVelocity]];
             }
             
-            // Keep velocity label color consistent
-            
             // Show audio parameters when running
-            if (self.audioEngine.isEngineRunning) {
-                double gain = self.audioEngine.currentGain;
-                double rate = self.audioEngine.currentRate;
-                [self.audioStatusLabel setStringValue:[NSString stringWithFormat:@"Gain: %.2f, Rate: %.2f", gain, rate]];
+            if ([currentEngine isEngineRunning]) {
+                if (self.currentAudioMode == AudioModeCreak) {
+                    double gain = [currentEngine currentGain];
+                    double rate = [currentEngine currentRate];
+                    [self.audioStatusLabel setStringValue:[NSString stringWithFormat:@"Gain: %.2f, Rate: %.2f", gain, rate]];
+                } else if (self.currentAudioMode == AudioModeTheremin) {
+                    double frequency = [currentEngine currentFrequency];
+                    double volume = [currentEngine currentVolume];
+                    [self.audioStatusLabel setStringValue:[NSString stringWithFormat:@"Freq: %.1f Hz, Vol: %.2f", frequency, volume]];
+                }
             }
         }
         
@@ -227,7 +313,7 @@
             status = @"Lid slightly open";
         } else if (angle < 90.0) {
             status = @"Lid partially open";
-        } else if (angle < 135.0) {
+        } else if (angle < 120.0) {
             status = @"Lid mostly open";
         } else {
             status = @"Lid fully open";
