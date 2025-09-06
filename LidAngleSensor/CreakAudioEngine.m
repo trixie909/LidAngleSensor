@@ -76,8 +76,6 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
             NSLog(@"[CreakAudioEngine] Failed to load audio files");
             return nil;
         }
-        
-        NSLog(@"[CreakAudioEngine] Successfully initialized");
     }
     return self;
 }
@@ -122,16 +120,12 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
         return NO;
     }
     
-    // Now connect the audio graph using the file's native format
+    // Connect the audio graph using the file's native format
     AVAudioFormat *fileFormat = self.creakLoopFile.processingFormat;
-    NSLog(@"[CreakAudioEngine] File format: %.0f Hz, %lu channels", 
-          fileFormat.sampleRate, (unsigned long)fileFormat.channelCount);
     
     // Connect audio graph: CreakPlayer -> Varispeed -> Mixer
     [self.audioEngine connect:self.creakPlayerNode to:self.varispeadUnit format:fileFormat];
     [self.audioEngine connect:self.varispeadUnit to:self.mixerNode format:fileFormat];
-    
-    NSLog(@"[CreakAudioEngine] Successfully loaded creak loop and connected audio graph");
     return YES;
 }
 
@@ -150,8 +144,6 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
     
     // Start looping the creak sound
     [self startCreakLoop];
-    
-    NSLog(@"[CreakAudioEngine] Audio engine started");
 }
 
 - (void)stopEngine {
@@ -161,8 +153,6 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
     
     [self.creakPlayerNode stop];
     [self.audioEngine stop];
-    
-    NSLog(@"[CreakAudioEngine] Audio engine stopped");
 }
 
 - (BOOL)isEngineRunning {
@@ -219,45 +209,37 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
         return;
     }
     
-    // Apply heavy smoothing to the angle input to eliminate sensor jitter
-    double angleSmoothingFactor = 0.05; // Very heavy smoothing (5% new, 95% old)
-    self.smoothedLidAngle = (angleSmoothingFactor * lidAngle) + 
-                           ((1.0 - angleSmoothingFactor) * self.smoothedLidAngle);
+    // Stage 1: Smooth the raw angle input to eliminate sensor jitter
+    self.smoothedLidAngle = (kAngleSmoothingFactor * lidAngle) + 
+                           ((1.0 - kAngleSmoothingFactor) * self.smoothedLidAngle);
     
-    // Calculate angular velocity using smoothed angle
+    // Stage 2: Calculate velocity from smoothed angle data
     double deltaAngle = self.smoothedLidAngle - self.lastLidAngle;
-    
-    // Calculate instantaneous velocity
     double instantVelocity;
     
-    // Much higher threshold to eliminate jitter completely
-    if (fabs(deltaAngle) < 0.5) { // Ignore changes smaller than 0.5 degrees
-        deltaAngle = 0.0;
+    // Apply movement threshold to eliminate remaining noise
+    if (fabs(deltaAngle) < kMovementThreshold) {
         instantVelocity = 0.0;
     } else {
-        instantVelocity = deltaAngle / deltaTime;
-        // Update last angle only when we have significant movement
+        instantVelocity = fabs(deltaAngle / deltaTime);
         self.lastLidAngle = self.smoothedLidAngle;
     }
     
-    // Use absolute value early to avoid sign issues
-    instantVelocity = fabs(instantVelocity);
-    
-    // Apply velocity smoothing only when there's actual movement
+    // Stage 3: Apply velocity smoothing and decay
     if (instantVelocity > 0.0) {
-        double velocitySmoothingFactor = 0.3; // Moderate smoothing for real movement
-        self.smoothedVelocity = (velocitySmoothingFactor * instantVelocity) + 
-                               ((1.0 - velocitySmoothingFactor) * self.smoothedVelocity);
+        // Real movement detected - apply moderate smoothing
+        self.smoothedVelocity = (kVelocitySmoothingFactor * instantVelocity) + 
+                               ((1.0 - kVelocitySmoothingFactor) * self.smoothedVelocity);
         self.lastMovementTime = currentTime;
     } else {
-        // No movement detected - aggressively decay to zero
-        self.smoothedVelocity *= 0.5; // Very fast decay when no movement
+        // No movement detected - apply fast decay
+        self.smoothedVelocity *= kVelocityDecayFactor;
     }
     
-    // Additional decay if we haven't seen real movement for a while
+    // Additional decay if no movement for extended period
     double timeSinceMovement = currentTime - self.lastMovementTime;
-    if (timeSinceMovement > 0.05) { // Only 50ms without movement
-        self.smoothedVelocity *= 0.8; // Additional decay
+    if (timeSinceMovement > (kMovementTimeoutMs / 1000.0)) {
+        self.smoothedVelocity *= kAdditionalDecayFactor;
     }
     
     // Update state for next iteration
@@ -273,24 +255,23 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
 }
 
 - (void)updateAudioParametersWithVelocity:(double)velocity {
-    // Velocity is already absolute at this point
-    double speed = velocity;
+    double speed = velocity; // Velocity is already absolute
     
-    // Calculate target gain - CORRECTED LOGIC: slow = loud, fast = quiet
+    // Calculate target gain: slow movement = loud creak, fast movement = quiet/silent
     double gain;
     if (speed < kDeadzone) {
-        gain = 0.0; // truly still → no sound
+        gain = 0.0; // Below deadzone: no sound
     } else {
-        // inverted smoothstep: slow => loud, fast => quiet
+        // Use inverted smoothstep curve for natural volume response
         double e0 = fmax(0.0, kVelocityFull - 0.5);
         double e1 = kVelocityQuiet + 0.5;
         double t = fmin(1.0, fmax(0.0, (speed - e0) / (e1 - e0)));
-        double s = t * t * (3.0 - 2.0 * t); // smoothstep
+        double s = t * t * (3.0 - 2.0 * t); // smoothstep function
         gain = 1.0 - s; // invert: slow = loud, fast = quiet
-        gain = fmax(0.0, fmin(1.0, gain)); // Clamp to [0,1]
+        gain = fmax(0.0, fmin(1.0, gain));
     }
     
-    // Calculate target rate (pitch/tempo) - wider range now
+    // Calculate target pitch/tempo rate based on movement speed
     double normalizedVelocity = fmax(0.0, fmin(1.0, speed / kVelocityQuiet));
     double rate = kMinRate + normalizedVelocity * (kMaxRate - kMinRate);
     rate = fmax(kMinRate, fmin(kMaxRate, rate));
@@ -299,7 +280,7 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
     self.targetGain = gain;
     self.targetRate = rate;
     
-    // Apply smooth parameter changes
+    // Apply smooth parameter transitions
     [self rampToTargetParameters];
 }
 
@@ -321,22 +302,14 @@ static const double kAdditionalDecayFactor = 0.8;     // Additional decay after 
     double deltaTime = currentTime - lastRampTime;
     lastRampTime = currentTime;
     
-    // Ramp current values toward targets (much faster ramping for immediate response)
-    self.currentGain = [self rampValue:self.currentGain toward:self.targetGain withDeltaTime:deltaTime timeConstantMs:50.0];
-    self.currentRate = [self rampValue:self.currentRate toward:self.targetRate withDeltaTime:deltaTime timeConstantMs:80.0];
+    // Ramp current values toward targets for smooth transitions
+    self.currentGain = [self rampValue:self.currentGain toward:self.targetGain withDeltaTime:deltaTime timeConstantMs:kGainRampTimeMs];
+    self.currentRate = [self rampValue:self.currentRate toward:self.targetRate withDeltaTime:deltaTime timeConstantMs:kRateRampTimeMs];
     
-    // Apply ramped values to audio nodes (make loop louder with 2x multiplier)
+    // Apply ramped values to audio nodes (2x multiplier for audible volume)
     self.creakPlayerNode.volume = (float)(self.currentGain * 2.0);
     self.varispeadUnit.rate = (float)self.currentRate;
-    
-    // Debug logging
-    if (self.targetGain > 0.01) {
-        NSLog(@"[CreakAudioEngine] Target: %.3f/%.3f, Current: %.3f/%.3f", 
-              self.targetGain, self.targetRate, self.currentGain, self.currentRate);
-    }
 }
-
-// Grain system removed - loop only
 
 #pragma mark - Property Accessors
 
