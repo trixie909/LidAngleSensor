@@ -126,9 +126,9 @@
     
     if (result == kIOReturnSuccess && reportLength >= 3) {
         // Data format: [report_id, angle_low, angle_high]
-        // Example: [01 72 00] = 0x7201 centidegrees = 291.85 degrees
-        uint16_t rawValue = *(uint16_t*)(report);
-        double angle = rawValue * 0.01;  // Convert centidegrees to degrees
+        // Parse the 16-bit value from bytes 1-2 (skipping report ID)
+        uint16_t rawValue = (report[2] << 8) | report[1];  // High byte, low byte
+        double angle = (double)rawValue;  // Raw value is already in degrees
         
         return angle;
     }
