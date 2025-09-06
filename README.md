@@ -14,6 +14,10 @@ Despite what the name would have you believe, it is a sensor that detects the an
 
 It was introduced with the 2019 16-inch MacBook Pro. If your laptop is newer, you probably have it.
 
+**My laptop should have it, why doesn't it show up?**
+
+I've only tested this on my M4 MacBook Pro and have hard-coded it to look for a specific sensor. If that doesn't work, try running [this script](https://gist.github.com/samhenrigold/42b5a92d1ee8aaf2b840be34bff28591) and report the output in [an issue](https://github.com/samhenrigold/LidAngleSensor/issues/new/choose).
+
 **Can I use this on my iMac?**
 
 Not yet tested. Feel free to slam your computer into your desk and make a PR with your results.
