@@ -12,7 +12,7 @@ Despite what the name would have you believe, it is a sensor that detects the an
 
 **Which devices have a lid angle sensor?**
 
-It was introduced with the 2019 16-inch MacBook Pro. If your laptop is newer, you probably have it. People have reported that it **does not work on M1 devices**, I have not yet figured out a fix.
+It was introduced with the 2019 16-inch MacBook Pro. If your laptop is newer, you probably have it. [People have reported](https://github.com/samhenrigold/LidAngleSensor/issues/13) that it **does not work on M1 devices**, I have not yet figured out a fix.
 
 **My laptop should have it, why doesn't it show up?**
 
@@ -58,3 +58,7 @@ Yes, never click "Start Audio". But this energy isn't encouraged.
 ## Building
 
 According to [this issue](https://github.com/samhenrigold/LidAngleSensor/issues/12), building requires having Xcode installed. I've only tested this on Xcode 26. YMMV.
+
+## Related projects
+
+- [Python library that taps into this sensor](https://github.com/tcsenpai/pybooklid)
