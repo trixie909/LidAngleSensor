@@ -89,7 +89,7 @@ xcodebuild \
 
 Notes:
 - On Apple Silicon, `-arch arm64` is correct. On Intel Macs, you can use `-arch x86_64` or omit `-arch`. Intel macs don't have the feature tho, so it won't be very useful. 
-- Disabling code signing is fine for local debug builds if you are not mr. gold. 
+- Disabling code signing is fine for local debug builds if you are not Mr. Gold. 
 
 ### Run
 
