@@ -26,6 +26,7 @@ Known problematic models:
 **Can I use this on my iMac?**
 
 Not yet tested. Feel free to slam your computer into your desk and make a PR with your results.
+Update: It appears to create a permanent shattered screen effect. It is not advisable.
 
 **Why?**
 
