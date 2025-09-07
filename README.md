@@ -45,9 +45,10 @@ I'm bad at audio.
 **Where did the sound effect come from?**
 
 LEGO Batman 3: Beyond Gotham. But you knew that already.
+
 **Can I turn off the sound?**
 
-Yes, never click "Start Audio" in the menu bar item. Weird of you to ask and kind off sad. :(
+Yes, never click "Start Audio". But this energy isn't encouraged.
 
 ## Build and Run (Terminal)
 
