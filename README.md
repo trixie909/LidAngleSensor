@@ -45,3 +45,55 @@ I'm bad at audio.
 **Where did the sound effect come from?**
 
 LEGO Batman 3: Beyond Gotham. But you knew that already.
+**Can I turn off the sound?**
+
+Yes, never click "Start Audio" in the menu bar item. Weird of you to ask and kind off sad. :(
+
+## Build and Run (Terminal)
+
+You can build and launch the app without Xcode’s UI using `xcodebuild`.
+
+### Prerequisites
+
+- macOS with Xcode or Xcode Command Line Tools (`xcode-select --install` and maybe `xcodebuild -runFirstLaunch`)
+- Optional: GitHub CLI (`gh`) — or use `git clone` instead
+
+### Clone
+
+Using GitHub CLI:
+
+```bash
+gh repo clone samhenrigold/LidAngleSensor
+cd LidAngleSensor
+```
+
+Or with Git:
+
+```bash
+git clone https://github.com/samhenrigold/LidAngleSensor.git
+cd LidAngleSensor
+```
+
+### Build (Debug)
+
+```bash
+xcodebuild \
+  -project "LidAngleSensor.xcodeproj" \
+  -scheme "LidAngleSensor" \
+  -configuration Debug \
+  -derivedDataPath build \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+  -arch arm64
+```
+
+Notes:
+- On Apple Silicon, `-arch arm64` is correct. On Intel Macs, you can use `-arch x86_64` or omit `-arch`. Intel macs don't have the feature tho, so it won't be very useful. 
+- Disabling code signing is fine for local debug builds if you are not mr. gold. 
+
+### Run
+
+```bash
+open build/Build/Products/Debug/LidAngleSensor.app
+```
+
+If you built a Release configuration, adjust the path accordingly (replace `Debug` with `Release`).
